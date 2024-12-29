@@ -1,1 +1,0 @@
-import{_ as o}from"./index.QKh5EeDE.js";import{l as r,m as n,o as t}from"./vendor.BDJDwKvG.js";const s={};function a(c,e){return t(),r("div",null,e[0]||(e[0]=[n("h1",null,"Amap",-1)]))}const f=o(s,[["render",a]]);export{f as default};
