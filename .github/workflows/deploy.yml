@@ -27,7 +27,7 @@ jobs:
         run: pnpm install # 使用 pnpm 安装依赖
 
       - name: Build Project
-        run: pnpm run build:prod
+        run: pnpm run build
 
       - name: Deploy
         uses: peaceiris/actions-gh-pages@v4
