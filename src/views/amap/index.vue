@@ -54,7 +54,7 @@
       <van-icon name="guide-o" size="24" />
     </div>
 
-    <!-- 添加路线显示切换按钮 -->
+    <!-- 路线显示切换按钮, 该功能暂时下线 -->
     <div 
       v-if="0"
       class="route-toggle-btn" 
@@ -63,7 +63,7 @@
       <van-icon :name="showRoute ? 'eye-o' : 'closed-eye'" size="24" />
     </div>
 
-    <!-- 路线规划面板固定在上方 -->
+    <!-- 路线规划面板 -->
     <transition name="slide">
       <div class="travel-info" v-if="showRoutePanel && travelInfo.driving">
         <div class="travel-cards">
@@ -104,7 +104,6 @@
       </div>
     </transition>
 
-    <!-- 全局loading -->
     <van-overlay :show="isLoading" class="loading-overlay">
       <van-loading type="spinner" color="#1989fa" />
     </van-overlay>
@@ -116,7 +115,7 @@ import { useRoute } from 'vue-router'
 import AMapLoader from '@amap/amap-jsapi-loader'
 import { showToast, showLoadingToast, closeToast } from 'vant'
 
-// 响应式数据
+
 const searchValue = ref('')
 const loading = ref(false)
 const finished = ref(false)
@@ -141,19 +140,19 @@ const travelInfo = ref({
 })
 const currentTravelMode = ref('')
 
-// 添加路线面板显示状态
+// 路线面板显示状态
 const showRoutePanel = ref(false)
 
-// 添加按钮显示控制
+// 按钮显示控制
 const showRouteBtn = ref(false)
 
-// 修改按钮位置相关变量
+
 const btnStyle = ref({
-  top: '120px',
+  top: '200px',
   right: '15px'
 })
 
-// 拖动相关变量
+
 const isDragging = ref(false)
 const startY = ref(0)
 const startX = ref(0)
@@ -188,8 +187,6 @@ const drag = (e) => {
     top: `${newTop}px`,
     right: `${newRight}px`
   }
-
-  // 如果需要阻止默认行为，使用 requestAnimationFrame 优化性能
   if (e.cancelable) {
     requestAnimationFrame(() => {
       e.preventDefault()
@@ -202,10 +199,10 @@ const dragEnd = () => {
   isDragging.value = false
 }
 
-// 添加一个新的状态来控制路线显示
+
 const showRoute = ref(true)
 
-// 修改切换路线面板的方法
+// 切换路线面板
 const toggleRoutePanel = (e) => {
   if (isDragging.value) {
     e.stopPropagation()
@@ -215,7 +212,7 @@ const toggleRoutePanel = (e) => {
   showRoutePanel.value = !showRoutePanel.value
 }
 
-// 修改切换出行方式的方法
+// 切换出行方式
 const switchTravelMode = (mode) => {
   // 如果点击的是当前模式且路线已显示，则不做任何操作
   if (mode === currentTravelMode.value && showRoute.value) {
@@ -282,7 +279,7 @@ const showSelectedRoute = (mode) => {
   }
 }
 
-// 修改添加标记函数
+// 添加地图打点
 const addMarker = (position) => {
   clearAllRoutes()
   
@@ -504,10 +501,10 @@ const initMap = async () => {
     // 添加缩放控件
     const zoomControl = new AMap.ToolBar({
       position: 'RB',           // 位置：RB表示右下，还可以是LT（左上）、RT（右上）、LB（左下）
-      offset: new AMap.Pixel(10, 40),  // 偏移量，可以调整控件的具体位置
-      showZoomBar: true,        // 显示缩放按钮
+      offset: new AMap.Pixel(10, 40),  // 偏移量
+      showZoomBar: true,        // 缩放按钮
       showControlButton: false, // 不显示倾斜、旋转按钮
-      theme: 'light'           // 主题，可选 'light' 或 'dark'
+      theme: 'light'           // 主题
     })
     window.map.addControl(zoomControl)
 
@@ -683,8 +680,8 @@ onUnmounted(() => {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
     z-index: 99;
     cursor: pointer;
-    touch-action: none; // 防止触摸事件被浏览器处理
-    transition: transform 0.2s; // 添加过渡效果
+    touch-action: none;
+    transition: transform 0.2s;
 
     &:active {
       transform: scale(0.95);
@@ -758,13 +755,19 @@ onUnmounted(() => {
 // 修改滑动动画
 .slide-enter-active,
 .slide-leave-active {
-  transition: all 0.3s ease;
+  transition: all 0.3s ease-in-out;
 }
 
 .slide-enter-from,
 .slide-leave-to {
   opacity: 0;
-  transform: translate(-50%, -20px);
+  transform: translate(100%, 0);
+}
+
+.slide-enter-to,
+.slide-leave-from {
+  opacity: 1;
+  transform: translateX(-50%);
 }
 
 .route-toggle-btn {
