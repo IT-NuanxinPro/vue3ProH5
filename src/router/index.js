@@ -15,6 +15,12 @@ const router = createRouter({
       meta: DEFAULT_META
     },
     {
+      path: '/tianjinMap',
+      name: 'tianjinMap',
+      component: () => import('@/views/tianjinMap/index.vue'),
+      meta: DEFAULT_META
+    },
+    {
       path: '/:pathMatch(.*)',
       redirect: '/'
     }
