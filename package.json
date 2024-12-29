@@ -1,0 +1,42 @@
+{
+  "name": "vue3ProH5",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
+    "format": "prettier --write src/"
+  },
+  "dependencies": {
+    "@amap/amap-jsapi-loader": "^1.0.1",
+    "axios": "^1.7.2",
+    "crypto-js": "^4.2.0",
+    "element-plus": "^2.7.4",
+    "moment": "^2.30.1",
+    "pinia": "^2.1.7",
+    "postcss-pxtorem": "^6.1.0",
+    "vant": "^4.9.1",
+    "vconsole": "^3.15.1",
+    "vue": "^3.4.21",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@rushstack/eslint-patch": "^1.8.0",
+    "@vant/auto-import-resolver": "^1.2.1",
+    "@vitejs/plugin-vue": "^5.0.4",
+    "@vue/eslint-config-prettier": "^9.0.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-vue": "^9.23.0",
+    "prettier": "^3.2.5",
+    "rollup-plugin-terser": "^7.0.2",
+    "unplugin-auto-import": "^0.17.6",
+    "unplugin-vue-components": "^0.27.0",
+    "unplugin-vue-setup-extend-plus": "^1.0.1",
+    "vite": "^5.2.8",
+    "sass": "^1.70.0",
+    "vite-plugin-svg-icons": "^2.0.1"
+  }
+}

@@ -1,0 +1,36 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  font-weight: normal;
+}
+html {
+  font-size: calc(100vw / 10);
+}
+/* img {
+  display: block;
+} */
+img {
+  display: initial;
+}
+#app {
+  margin: 0 auto;
+  font-weight: normal;
+  height: 100vh;
+  overflow: auto;
+}
+::-webkit-scrollbar {
+  display: none !important;
+}
+::-webkit-scrollbar {
+  width: 0px !important;
+}
+div {
+  height: auto;
+}
+
+.van-toast {
+  width: fit-content;
+  max-height: 80vh;
+}
