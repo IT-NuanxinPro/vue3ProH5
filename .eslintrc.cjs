@@ -12,7 +12,8 @@ module.exports = {
   globals: {
     showNotify: 'readonly',
     WadeMobile: 'readonly',
-    showDialog: 'readonly'
+    showDialog: 'readonly',
+    AMap: 'readonly'
   },
   parserOptions: {
     ecmaVersion: 'latest'
