@@ -56,7 +56,7 @@
 
     <!-- 添加路线显示切换按钮 -->
     <div 
-      v-if="showRouteBtn"
+      v-if="0"
       class="route-toggle-btn" 
       @click="toggleRoute"
     >
