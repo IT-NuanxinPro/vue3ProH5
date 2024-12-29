@@ -6,7 +6,7 @@ import createVitePlugins from './vite/plugins'
 // https://vitejs.dev/config/
 export default defineConfig((command) => {
   return {
-    base: '/',
+    base: './',
     server: {
       host: '0.0.0.0',
       port: 2023,
