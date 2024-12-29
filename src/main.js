@@ -1,4 +1,5 @@
 import './assets/style/main.scss'
+import '@/hooks/useToast.scss'
 
 import { createApp } from 'vue'
 

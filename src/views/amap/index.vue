@@ -1,18 +1,31 @@
 <template>
   <div class="map-search">
-    <!-- 搜索框 -->
     <div class="search-box">
-      <van-search
-        v-model="searchValue"
-        placeholder="请输入地址"
-        show-action
-        @search="onSearch"
-        @update:model-value="handleSearchInput"
-      >
-        <template #action>
-          <span @click="onSearch">搜索</span>
-        </template>
-      </van-search>
+      <div class="search-input-wrapper">
+        <div class="input-container">
+          <input
+            type="text"
+            v-model="searchValue"
+            placeholder="请输入地址"
+            class="search-input"
+            @keyup.enter="onSearch"
+            @input="handleInput"
+          >
+          <!-- 搜索提示列表 -->
+          <div class="search-tips" v-if="tipList.length">
+            <div 
+              v-for="(item, index) in tipList" 
+              :key="index"
+              class="tip-item"
+              @click="handleSelectTip(item)"
+            >
+              <div class="name" v-html="highlightKeyword(item.name)"></div>
+              <div class="district">{{ item.district }}</div>
+            </div>
+          </div>
+        </div>
+        <button class="search-btn" @click="onSearch">搜索</button>
+      </div>
     </div>
 
     <!-- 地图容器 -->
@@ -22,23 +35,34 @@
     <div class="distance-info" v-if="distanceInfo">
       <van-cell :title="distanceInfo" />
     </div>
+     <!-- 视图切换按钮 -->
+    <div 
+      v-if="!isLoading"
+      class="view-toggle-btn"
+      @click="toggleViewMode"
+    >
+      <span class="view-text">{{ is3D ? '3D' : '2D' }}</span>
+    </div>
 
     <!-- 地址列表 -->
     <div class="address-list">
-      <van-list
-        v-model:loading="loading"
-        :finished="finished"
-        finished-text="没有更多了"
-        @load="onLoad"
-      >
-        <van-cell
-          v-for="item in addressList"
-          :key="item.id"
-          :title="item.name"
-          :label="item.address"
-          @click="handleSelectAddress(item)"
-        />
-      </van-list>
+      <template v-if="!isLoading">
+        <template v-if="addressList.length">
+          <div 
+            v-for="item in addressList"
+            :key="item.id"
+            class="address-item"
+            @click="handleSelectAddress(item)"
+          >
+            <div class="title">{{ item.name }}</div>
+            <div class="label">{{ item.address }}</div>
+          </div>
+        </template>
+        <div v-else class="empty-status">
+          <img src="https://fastly.jsdelivr.net/npm/@vant/assets/custom-empty-image.png" class="empty-image">
+          <p class="empty-text">暂无地址数据</p>
+        </div>
+      </template>
     </div>
 
     <!-- 路线规划按钮，添加显示条件 -->
@@ -52,15 +76,6 @@
       :style="btnStyle"
     >
       <van-icon name="guide-o" size="24" />
-    </div>
-
-    <!-- 路线显示切换按钮, 该功能暂时下线 -->
-    <div 
-      v-if="0"
-      class="route-toggle-btn" 
-      @click="toggleRoute"
-    >
-      <van-icon :name="showRoute ? 'eye-o' : 'closed-eye'" size="24" />
     </div>
 
     <!-- 路线规划面板 -->
@@ -104,23 +119,42 @@
       </div>
     </transition>
 
-    <van-overlay :show="isLoading" class="loading-overlay">
-      <van-loading type="spinner" color="#1989fa" />
-    </van-overlay>
+    <!-- 天气信息 -->
+    <div class="weather-info" v-if="weatherData">
+      <div class="weather-content">
+        <div class="current-weather">
+          <span class="temperature">{{ weatherData.temperature }}°</span>
+          <span class="weather">{{ weatherData.weather }}</span>
+        </div>
+        <div class="weather-detail">
+          <span>湿度 {{ weatherData.humidity }}%</span>
+          <span>{{ weatherData.windDirection }}风 {{ weatherData.windPower }}级</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { useRoute } from 'vue-router'
 import AMapLoader from '@amap/amap-jsapi-loader'
-import { showToast, showLoadingToast, closeToast } from 'vant'
+import { useToast } from '@/hooks/useToast'
 
+const { showToast, showLoadingToast } = useToast()
+function debounce(fn, delay) {
+  let timer = null
+  return function (...args) {
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => {
+      fn.apply(this, args)
+    }, delay)
+  }
+}
 
 const searchValue = ref('')
-const loading = ref(false)
-const finished = ref(false)
+const tipList = ref([])
+let autoComplete = null
 const addressList = ref([])
-const isLoading = ref(true)
 const route = useRoute()
 const currentPosition = ref(null)
 const distanceInfo = ref('')
@@ -146,12 +180,12 @@ const showRoutePanel = ref(false)
 // 按钮显示控制
 const showRouteBtn = ref(false)
 
+const is3D = ref(true)  // 添加 3D 视图状态
 
 const btnStyle = ref({
-  top: '200px',
-  right: '15px'
+  top: '245px',
+  right: '24px'
 })
-
 
 const isDragging = ref(false)
 const startY = ref(0)
@@ -159,7 +193,7 @@ const startX = ref(0)
 const startTop = ref(0)
 const startRight = ref(0)
 
-// 开始拖动
+
 const dragStart = (e) => {
   isDragging.value = true
   startY.value = e.touches[0].clientY
@@ -199,7 +233,6 @@ const dragEnd = () => {
   isDragging.value = false
 }
 
-
 const showRoute = ref(true)
 
 // 切换路线面板
@@ -227,24 +260,14 @@ const switchTravelMode = (mode) => {
   showSelectedRoute(mode)
 }
 
-// 修改切换路线显示的方法
-const toggleRoute = () => {
-  showRoute.value = !showRoute.value
-  if (showRoute.value) {
-    showSelectedRoute(currentTravelMode.value)
-  } else {
-    clearAllRoutes()
-  }
-}
-
-// 修改清除路线的方法
+// 修改清除路线
 const clearAllRoutes = () => {
   window.driving && window.driving.clear()
   window.riding && window.riding.clear()
   window.walking && window.walking.clear()
 }
 
-// 修改显示选中路线的方法
+// 修改显示选中路线
 const showSelectedRoute = (mode) => {
   clearAllRoutes()
   
@@ -342,11 +365,13 @@ const formatTime = (seconds) => {
 // 搜索地址
 const onSearch = () => {
   return new Promise((resolve, reject) => {
-    if (!searchValue.value) {
+    if (!searchValue.value.trim()) {
       showToast('请输入搜索地址')
-      reject(new Error('空地址'))
-      return
+      return Promise.reject('empty input')
     }
+
+    // 关闭提示框
+    tipList.value = []
 
     window.placeSearch.search(searchValue.value, (status, result) => {
       if (status === 'complete' && result.poiList && result.poiList.pois && result.poiList.pois.length > 0) {
@@ -363,30 +388,14 @@ const onSearch = () => {
         resolve()
       } else {
         showToast('未找到相关地址')
+        addressList.value = []
         reject(new Error('搜索失败'))
       }
     })
   })
 }
 
-// 修改输入框值变化时的处理
-const handleSearchInput = (value) => {
-  if (!value) {
-    addressList.value = []
-    // 只有当用户手动清空搜索框时才清除距离信息
-    if (document.activeElement === document.querySelector('.van-search__field input')) {
-      distanceInfo.value = ''
-    }
-  }
-}
-
-// 加载更多
-const onLoad = () => {
-  loading.value = false
-  finished.value = true
-}
-
-// 修改计算所有路线信息的方法
+// 修改计算所有路线信息
 const calculateAllRoutes = (position) => {
   if (!currentPosition.value) return
 
@@ -439,12 +448,36 @@ const calculateAllRoutes = (position) => {
   )
 }
 
-// 初始化地图
+// 切换 2D/3D 视图
+const toggleViewMode = () => {
+  is3D.value = !is3D.value
+  if (window.map) {
+    const pitch = is3D.value ? 45 : 0  // 3D 时设置倾斜角度，2D 时设置为 0
+    window.map.setPitch(pitch)  // 设置地图倾斜角度
+  }
+}
+
+const weatherData = ref(null)
+
+// 获取天气信息
+const getWeatherInfo = () => {
+  if (!window.AMap) return
+  
+  const weather = new AMap.Weather()
+  weather.getLive('天津', (err, data) => {
+    if (!err) {
+      weatherData.value = data
+    } else {
+      console.error('获取天气信息失败：', err)
+    }
+  })
+}
+
+// 修改初始化地图
 const initMap = async () => {
-  showLoadingToast({
+  const closeLoading = showLoadingToast({
     message: '加载中...',
-    forbidClick: true,
-    duration: 0
+    forbidClick: true
   })
 
   try {
@@ -479,34 +512,46 @@ const initMap = async () => {
         'AMap.PlaceSearch',
         'AMap.Scale',
         'AMap.ToolBar',
+        'AMap.ControlBar',
         'AMap.GeometryUtil',
         'AMap.Driving',
         'AMap.Walking',
-        'AMap.Riding'
+        'AMap.Riding',
+        'AMap.Weather',
+        'AMap.AutoComplete'
       ]
     })
 
     window.map = new AMap.Map('container', {
       viewMode: '3D',
-      zoom: 16,
-      center: initialPosition
+      zoom: 14,
+      center: initialPosition,
+      pitch: 45
     })
 
-    // 添加比例尺控件
     const scale = new AMap.Scale({
-      position: 'LB' // 左下角
+      position: {
+        left: '5px',
+        bottom: '5px'
+      }
     })
     window.map.addControl(scale)
 
-    // 添加缩放控件
     const zoomControl = new AMap.ToolBar({
-      position: 'RB',           // 位置：RB表示右下，还可以是LT（左上）、RT（右上）、LB（左下）
-      offset: new AMap.Pixel(10, 40),  // 偏移量
-      showZoomBar: true,        // 缩放按钮
-      showControlButton: false, // 不显示倾斜、旋转按钮
-      theme: 'light'           // 主题
+      position: {
+        right: '28px',
+        top: '100px'
+      }
     })
     window.map.addControl(zoomControl)
+
+    const controlBar = new AMap.ControlBar({
+      position: {
+        right: '0px',
+        top: '0px'
+      }
+    });
+    window.map.addControl(controlBar);
 
     // 初始化搜索插件
     window.placeSearch = new AMap.PlaceSearch({
@@ -537,15 +582,25 @@ const initMap = async () => {
       await onSearch()
     }
 
-    closeToast()
+    // 获取天气信息
+    getWeatherInfo()
+
+    // 初始化 AutoComplete
+    autoComplete = new AMap.AutoComplete({
+      city: '天津',
+      citylimit: true,
+      input: ''  // 不绑定输入框，手动调用
+    })
+
+    closeLoading()
     isLoading.value = false
   } catch (e) {
     console.error('地图初始化失败：', e)
     showToast('地图加载失败')
+    closeLoading()
     isLoading.value = false
   }
 }
-
 
 const getCurrentLocationPromise = () => {
   return new Promise((resolve, reject) => {
@@ -561,7 +616,7 @@ const getCurrentLocationPromise = () => {
   })
 }
 
-// 修改添加当前位置的蓝色标记
+// 当前位置的蓝色标记
 const addCurrentLocationMarker = (position) => {
   if (window.currentLocationMarker) {
     window.currentLocationMarker.setMap(null)
@@ -587,7 +642,7 @@ const handleSelectAddress = (item, isSearch = false) => {
   }
   
   addMarker(item.location)
-  window.map.setZoom(17)
+  window.map.setZoom(14)
 
   // 显示路线面板
   showRoutePanel.value = true
@@ -595,8 +650,45 @@ const handleSelectAddress = (item, isSearch = false) => {
   currentTravelMode.value = ''
 }
 
+const handleInput = debounce(async () => {
+  if (!searchValue.value.trim()) {
+    tipList.value = []
+    return
+  }
+  
+  autoComplete.search(searchValue.value, (status, result) => {
+    if (status === 'complete' && result.tips) {
+      tipList.value = result.tips
+    } else {
+      tipList.value = []
+    }
+  })
+}, 300)
+
+// 高亮关键字
+const highlightKeyword = (text) => {
+  if (!searchValue.value.trim()) return text
+  const keyword = searchValue.value.trim()
+  const reg = new RegExp(keyword, 'gi')
+  return text.replace(reg, match => `<span class="highlight">${match}</span>`)
+}
+
+// 选择提示项
+const handleSelectTip = (tip) => {
+  searchValue.value = tip.name
+  tipList.value = []
+  onSearch()
+}
+
+// 点击其他地方关闭提示列表
 onMounted(() => {
   initMap()
+  document.addEventListener('click', (e) => {
+    const searchBox = document.querySelector('.search-box')
+    if (!searchBox?.contains(e.target)) {
+      tipList.value = []
+    }
+  })
 })
 
 onUnmounted(() => {
@@ -612,6 +704,8 @@ onUnmounted(() => {
     window.walking = null
   }
 })
+
+const isLoading = ref(true)
 </script>
 
 <style lang="scss" scoped>
@@ -626,6 +720,98 @@ onUnmounted(() => {
     left: 0;
     right: 0;
     z-index: 100;
+    background: #fff;
+    padding: 8px 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    .search-input-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      
+      .input-container {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        height: 36px;
+        background: #f7f8fa;
+        border-radius: 4px;
+        position: relative;  // 为提示列表定位
+        
+        .search-tips {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          background: #fff;
+          border-radius: 4px;
+          box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+          margin-top: 4px;
+          max-height: 300px;
+          overflow-y: auto;
+          z-index: 1000;
+
+          .tip-item {
+            padding: 10px 12px;
+            cursor: pointer;
+
+            &:hover {
+              background: #f5f5f5;
+            }
+
+            .name {
+              font-size: 14px;
+              color: #323233;
+              margin-bottom: 2px;
+
+              :deep(.highlight) {
+                color: #ee0a24;
+              }
+            }
+
+            .district {
+              font-size: 12px;
+              color: #969799;
+            }
+          }
+        }
+      }
+
+      .search-input {
+        flex: 1;
+        height: 100%;
+        border: none;
+        padding: 0 12px;
+        font-size: 14px;
+        background: transparent;
+        outline: none;
+
+        &:focus {
+          &::placeholder {
+            color: #c8c9cc;
+          }
+        }
+
+        &::placeholder {
+          color: #969799;
+        }
+      }
+
+      .search-btn {
+        padding: 0 16px;
+        height: 36px;
+        color: #1989fa;
+        font-size: 14px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        white-space: nowrap;
+
+        &:active {
+          opacity: 0.8;
+        }
+      }
+    }
   }
 
   #container {
@@ -660,12 +846,47 @@ onUnmounted(() => {
     height: calc(40vh - 54px);
     overflow-y: auto;
     background: #fff;
-  }
 
-  .loading-overlay {
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    .empty-status {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-top: 60px;
+      
+      .empty-image {
+        width: 60px;
+        height: 60px;
+      }
+      
+      .empty-text {
+        margin-top: 15px;
+        font-size: 14px;
+        color: #969799;
+      }
+    }
+
+    .address-item {
+      padding: 16px;
+      cursor: pointer;
+      border-bottom: 1px solid #f5f5f5;
+      transition: background-color 0.2s;
+
+      &:active {
+        background-color: #f5f5f5;
+      }
+
+      .title {
+        font-size: 14px;
+        color: #323233;
+        margin-bottom: 4px;
+      }
+
+      .label {
+        font-size: 12px;
+        color: #969799;
+      }
+    }
   }
 
   .route-btn {
@@ -691,7 +912,7 @@ onUnmounted(() => {
 
   .travel-info {
     position: fixed;
-    top: 64px;
+    bottom: 36%;
     left: 50%;
     transform: translateX(-50%);
     z-index: 98;
@@ -703,7 +924,6 @@ onUnmounted(() => {
       justify-content: space-between;
       background: rgba(255, 255, 255, 0.95);
       border-radius: 12px;
-      padding: 12px;
       box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
     }
 
@@ -747,6 +967,73 @@ onUnmounted(() => {
         .distance, .time {
           color: #1989fa;
         }
+      }
+    }
+  }
+
+  .view-toggle-btn {
+    position: fixed;
+    top: 70px;
+    left: 5px;
+    min-width: 40px;
+    height: 40px;
+    padding: 0 12px;
+    background: #fff;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 99;
+    cursor: pointer;
+    user-select: none;
+    
+    .view-text {
+      font-size: 14px;
+      font-weight: 500;
+      color: #323233;
+    }
+
+    &:active {
+      background: #f5f5f5;
+    }
+  }
+
+  .weather-info {
+    position: fixed;
+    top: 120px;
+    left: 5px;
+    background: rgba(255, 255, 255, 0.9);
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    z-index: 99;
+
+    .weather-content {
+      .current-weather {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 4px;
+
+        .temperature {
+          font-size: 24px;
+          font-weight: 500;
+          color: #323233;
+        }
+
+        .weather {
+          font-size: 14px;
+          color: #666;
+        }
+      }
+
+      .weather-detail {
+        display: flex;
+        flex-direction: column;
+        font-size: 12px;
+        color: #666;
+        gap: 2px;
       }
     }
   }
