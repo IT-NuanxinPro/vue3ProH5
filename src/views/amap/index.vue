@@ -778,7 +778,8 @@ const openMap = (mapType) => {
   let webUrl = ''
   switch (mapType) {
     case 'gaode':
-      webUrl = `https://uri.amap.com/route/plan/?dlat=${latitude}&dlon=${longitude}&dname=${encodeURIComponent(name)}&dev=0&t=0`
+      // webUrl = `https://uri.amap.com/route/plan/?dlat=${latitude}&dlon=${longitude}&dname=${encodeURIComponent(name)}&dev=0&t=0`
+      webUrl = `https://uri.amap.com/navigation?to=${longitude},${latitude},${encodeURIComponent(name)}&mode=car&coordinate=gaode&callnative=1`
       break
     case 'baidu':
       webUrl = `https://api.map.baidu.com/direction?destination=${latitude},${longitude}&destination_name=${encodeURIComponent(name)}&mode=driving&output=html&src=webapp.baidu.openAPIdemo`
