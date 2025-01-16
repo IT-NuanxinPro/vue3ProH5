@@ -78,17 +78,43 @@
       <van-icon name="guide-o" size="24" />
     </div>  -->
 
-    <!-- 添加导航按钮 -->
+    <!-- 修改导航按钮 -->
     <div 
       class="nav-btn" 
       @touchstart.passive="dragStart"
       @touchmove.passive="drag"
       @touchend.passive="dragEnd"
-       :style="btnStyle"
-      @click="openAMapApp"
+      :style="btnStyle"
+      @click="handleNavClick"
     >
       <van-icon name="guide-o" size="24" />
     </div>
+
+    <!-- 添加地图选择弹出层 -->
+    <van-popup
+      v-model:show="showMapSelector"
+      round
+      position="bottom"
+    >
+      <div class="map-selector">
+        <div class="selector-title">选择导航应用</div>
+        <div class="map-options">
+          <div class="map-option" @click="openMap('gaode')">
+            <van-icon name="guide-o" size="24" color="#2aae67"/>
+            <span>高德地图</span>
+          </div>
+          <div class="map-option" @click="openMap('baidu')">
+            <van-icon name="location-o" size="24" color="#3385ff"/>
+            <span>百度地图</span>
+          </div>
+          <div class="map-option" @click="openMap('tencent')">
+            <van-icon name="location" size="24" color="#4b90fd"/>
+            <span>腾讯地图</span>
+          </div>
+        </div>
+        <div class="cancel-btn" @click="showMapSelector = false">取消</div>
+      </div>
+    </van-popup>
 
     <!-- 路线规划面板 -->
     <transition name="slide">
@@ -719,8 +745,8 @@ onUnmounted(() => {
 
 const isLoading = ref(true)
 
-// 添加打开高德地图 APP 的方法
-const openAMapApp = () => {
+// 修改打开地图的方法
+const openMap = (mapType) => {
   if (!window.marker) {
     showToast('请先选择目的地')
     return
@@ -731,22 +757,76 @@ const openAMapApp = () => {
   const longitude = position.getLng()
   const name = searchValue.value
 
-  // 构建高德地图 APP 的 URL Scheme
-  const scheme = `androidamap://navi?sourceApplication=appname&poiname=${encodeURIComponent(name)}&lat=${latitude}&lon=${longitude}&dev=0&style=2`
-  
-  // 构建网页版高德地图的 URL（作为备用跳转）
-  const webUrl = `https://uri.amap.com/navigation?to=${longitude},${latitude},${encodeURIComponent(name)}&mode=car&coordinate=gaode&callnative=1`
+  // 构建各个地图的 URL Scheme
+  let url = ''
+  switch (mapType) {
+    case 'gaode':
+      url = `androidamap://navi?sourceApplication=appname&poiname=${encodeURIComponent(name)}&lat=${latitude}&lon=${longitude}&dev=0&style=2`
+      break
+    case 'baidu':
+      url = `baidumap://map/direction?destination=${latitude},${longitude}&destination_name=${encodeURIComponent(name)}&mode=driving&coord_type=gcj02`
+      break
+    case 'tencent':
+      url = `qqmap://map/routeplan?type=drive&to=${encodeURIComponent(name)}&tocoord=${latitude},${longitude}&referer=myapp`
+      break
+  }
 
-  // 尝试打开高德地图 APP
-  const openApp = window.open(scheme)
-  
-  // 如果无法打开 APP，延迟一下跳转到网页版
-  setTimeout(() => {
-    if (openApp && !openApp.closed) {
-      openApp.close()
+  // 构建网页版备用链接
+  let webUrl = ''
+  switch (mapType) {
+    case 'gaode':
+      webUrl = `https://uri.amap.com/navigation?to=${longitude},${latitude},${encodeURIComponent(name)}&mode=car&coordinate=gaode&callnative=1`
+      break
+    case 'baidu':
+      webUrl = `https://api.map.baidu.com/direction?destination=${latitude},${longitude}&destination_name=${encodeURIComponent(name)}&mode=driving&output=html&src=webapp.baidu.openAPIdemo`
+      break
+    case 'tencent':
+      webUrl = `https://map.qq.com/dir/?type=drive&to=${encodeURIComponent(name)}&tocoord=${latitude},${longitude}&referer=myapp`
+      break
+  }
+
+  // 尝试打开应用
+  if (isWeixinBrowser()) {
+    // 在微信中直接使用 URL Scheme
+    window.location.href = url
+    
+    // 如果几秒后还在当前页面，说明没有安装对应的 APP，跳转到网页版
+    setTimeout(() => {
+      if (document.hidden) return  // 如果页面隐藏了，说明已经成功打开了应用
       window.location.href = webUrl
-    }
-  }, 2000)
+      showToast('未安装对应地图APP，已为您跳转到网页版')
+    }, 2500)
+  } else {
+    // 非微信环境使用 window.open
+    const openApp = window.open(url)
+    setTimeout(() => {
+      if (openApp && !openApp.closed) {
+        openApp.close()
+        window.location.href = webUrl
+        showToast('未安装对应地图APP，已为您跳转到网页版')
+      }
+    }, 2500)
+  }
+
+  // 关闭选择器
+  showMapSelector.value = false
+}
+
+// 添加地图选择器的显示状态
+const showMapSelector = ref(false)
+
+// 添加检测是否在微信浏览器中的方法
+const isWeixinBrowser = () => {
+  return /MicroMessenger/i.test(navigator.userAgent)
+}
+
+// 添加导航按钮点击处理方法
+const handleNavClick = () => {
+  if (!window.marker) {
+    showToast('请先选择目的地')
+    return
+  }
+  showMapSelector.value = true
 }
 </script>
 
@@ -1100,6 +1180,58 @@ const openAMapApp = () => {
     &:active {
       transform: scale(0.95);
       background: #f5f5f5;
+    }
+  }
+
+  // 添加地图选择器样式
+  .map-selector {
+    padding: 16px;
+
+    .selector-title {
+      text-align: center;
+      font-size: 16px;
+      color: #323233;
+      margin-bottom: 16px;
+    }
+
+    .map-options {
+      display: flex;
+      justify-content: space-around;
+      padding: 8px 0;
+
+      .map-option {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 12px;
+        cursor: pointer;
+
+        span {
+          margin-top: 8px;
+          font-size: 14px;
+          color: #323233;
+        }
+
+        &:active {
+          background-color: #f5f5f5;
+          border-radius: 8px;
+        }
+      }
+    }
+
+    .cancel-btn {
+      margin-top: 16px;
+      text-align: center;
+      padding: 12px;
+      color: #323233;
+      font-size: 14px;
+      background: #f7f8fa;
+      border-radius: 8px;
+      cursor: pointer;
+
+      &:active {
+        background: #e8e8e8;
+      }
     }
   }
 }
