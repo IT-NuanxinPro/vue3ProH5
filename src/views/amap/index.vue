@@ -757,25 +757,28 @@ const openMap = (mapType) => {
   const longitude = position.getLng()
   const name = searchValue.value
 
-  // 构建各个地图的 URL Scheme
   let url = ''
+  let appName = ''
   switch (mapType) {
     case 'gaode':
-      url = `androidamap://navi?sourceApplication=appname&poiname=${encodeURIComponent(name)}&lat=${latitude}&lon=${longitude}&dev=0&style=2`
+      url = `androidamap://route/plan/?dlat=${latitude}&dlon=${longitude}&dname=${encodeURIComponent(name)}&dev=0&t=0`
+      appName = '高德地图'
       break
     case 'baidu':
       url = `baidumap://map/direction?destination=${latitude},${longitude}&destination_name=${encodeURIComponent(name)}&mode=driving&coord_type=gcj02`
+      appName = '百度地图'
       break
     case 'tencent':
       url = `qqmap://map/routeplan?type=drive&to=${encodeURIComponent(name)}&tocoord=${latitude},${longitude}&referer=myapp`
+      appName = '腾讯地图'
       break
   }
 
-  // 构建网页版备用链接
+  // 修改高德地图的网页版备用链接
   let webUrl = ''
   switch (mapType) {
     case 'gaode':
-      webUrl = `https://uri.amap.com/navigation?to=${longitude},${latitude},${encodeURIComponent(name)}&mode=car&coordinate=gaode&callnative=1`
+      webUrl = `https://uri.amap.com/route/plan/?dlat=${latitude}&dlon=${longitude}&dname=${encodeURIComponent(name)}&dev=0&t=0`
       break
     case 'baidu':
       webUrl = `https://api.map.baidu.com/direction?destination=${latitude},${longitude}&destination_name=${encodeURIComponent(name)}&mode=driving&output=html&src=webapp.baidu.openAPIdemo`
@@ -785,28 +788,31 @@ const openMap = (mapType) => {
       break
   }
 
-  // 尝试打开应用
-  if (isWeixinBrowser()) {
-    // 在微信中直接使用 URL Scheme
-    window.location.href = url
-    
-    // 如果几秒后还在当前页面，说明没有安装对应的 APP，跳转到网页版
-    setTimeout(() => {
-      if (document.hidden) return  // 如果页面隐藏了，说明已经成功打开了应用
-      window.location.href = webUrl
-      showToast('未安装对应地图APP，已为您跳转到网页版')
-    }, 2500)
-  } else {
-    // 非微信环境使用 window.open
-    const openApp = window.open(url)
-    setTimeout(() => {
-      if (openApp && !openApp.closed) {
-        openApp.close()
+  // 先显示提示
+  showToast(`正在尝试打开${appName}，如未安装将跳转至网页版`)
+
+  // 延迟一下再尝试打开应用
+  setTimeout(() => {
+    if (isWeixinBrowser()) {
+      // 在微信中直接使用 URL Scheme
+      window.location.href = url
+      
+      // 如果几秒后还在当前页面，说明没有安装对应的 APP，跳转到网页版
+      setTimeout(() => {
+        if (document.hidden) return  // 如果页面隐藏了，说明已经成功打开了应用
         window.location.href = webUrl
-        showToast('未安装对应地图APP，已为您跳转到网页版')
-      }
-    }, 2500)
-  }
+      }, 2500)
+    } else {
+      // 非微信环境使用 window.open
+      const openApp = window.open(url)
+      setTimeout(() => {
+        if (openApp && !openApp.closed) {
+          openApp.close()
+          window.location.href = webUrl
+        }
+      }, 2500)
+    }
+  }, 1500) // 延迟 1.5 秒，让用户能看到提示
 
   // 关闭选择器
   showMapSelector.value = false
