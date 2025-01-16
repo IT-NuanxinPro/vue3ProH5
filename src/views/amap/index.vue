@@ -66,7 +66,7 @@
     </div>
 
     <!-- 路线规划按钮，添加显示条件 -->
-    <div 
+    <!-- <div 
       v-if="showRouteBtn"
       class="route-btn" 
       @click="toggleRoutePanel"
@@ -74,6 +74,18 @@
       @touchmove.passive="drag"
       @touchend.passive="dragEnd"
       :style="btnStyle"
+    >
+      <van-icon name="guide-o" size="24" />
+    </div>  -->
+
+    <!-- 添加导航按钮 -->
+    <div 
+      class="nav-btn" 
+      @touchstart.passive="dragStart"
+      @touchmove.passive="drag"
+      @touchend.passive="dragEnd"
+       :style="btnStyle"
+      @click="openAMapApp"
     >
       <van-icon name="guide-o" size="24" />
     </div>
@@ -183,7 +195,7 @@ const showRouteBtn = ref(false)
 const is3D = ref(true)  // 添加 3D 视图状态
 
 const btnStyle = ref({
-  top: '245px',
+  top: '235px',
   right: '24px'
 })
 
@@ -236,14 +248,14 @@ const dragEnd = () => {
 const showRoute = ref(true)
 
 // 切换路线面板
-const toggleRoutePanel = (e) => {
-  if (isDragging.value) {
-    e.stopPropagation()
-    return
-  }
+// const toggleRoutePanel = (e) => {
+//   if (isDragging.value) {
+//     e.stopPropagation()
+//     return
+//   }
   
-  showRoutePanel.value = !showRoutePanel.value
-}
+//   showRoutePanel.value = !showRoutePanel.value
+// }
 
 // 切换出行方式
 const switchTravelMode = (mode) => {
@@ -706,6 +718,36 @@ onUnmounted(() => {
 })
 
 const isLoading = ref(true)
+
+// 添加打开高德地图 APP 的方法
+const openAMapApp = () => {
+  if (!window.marker) {
+    showToast('请先选择目的地')
+    return
+  }
+
+  const position = window.marker.getPosition()
+  const latitude = position.getLat()
+  const longitude = position.getLng()
+  const name = searchValue.value
+
+  // 构建高德地图 APP 的 URL Scheme
+  const scheme = `androidamap://navi?sourceApplication=appname&poiname=${encodeURIComponent(name)}&lat=${latitude}&lon=${longitude}&dev=0&style=2`
+  
+  // 构建网页版高德地图的 URL（作为备用跳转）
+  const webUrl = `https://uri.amap.com/navigation?to=${longitude},${latitude},${encodeURIComponent(name)}&mode=car&coordinate=gaode&callnative=1`
+
+  // 尝试打开高德地图 APP
+  const openApp = window.open(scheme)
+  
+  // 如果无法打开 APP，延迟一下跳转到网页版
+  setTimeout(() => {
+    if (openApp && !openApp.closed) {
+      openApp.close()
+      window.location.href = webUrl
+    }
+  }, 2000)
+}
 </script>
 
 <style lang="scss" scoped>
@@ -899,7 +941,7 @@ const isLoading = ref(true)
     align-items: center;
     justify-content: center;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-    z-index: 99;
+    z-index: 99999;
     cursor: pointer;
     touch-action: none;
     transition: transform 0.2s;
@@ -1035,6 +1077,29 @@ const isLoading = ref(true)
         color: #666;
         gap: 2px;
       }
+    }
+  }
+
+  // 添加导航按钮样式
+  .nav-btn {
+    position: fixed;
+    width: 40px;
+    height: 40px;
+    background: #fff;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    z-index: 99;
+    cursor: pointer;
+    right: 24px;
+    top: 185px; // 位置在路线规划按钮上方
+    transition: transform 0.2s;
+
+    &:active {
+      transform: scale(0.95);
+      background: #f5f5f5;
     }
   }
 }
